@@ -7,8 +7,15 @@ import com.pi4j.wiringpi.Spi;
 import rc522.Convert;
 import rc522.RaspRC522;
 
-public class ReadRFID {
+public class ReadRFID extends Thread {
     public static void main(String[] args) throws InterruptedException {
+        ReadRFID readRFID = new ReadRFID();
+        readRFID.start();
+
+    }
+
+    @Override
+    public void run() {
         RaspRC522 rc522 = new RaspRC522();
         int back_bits[] = new int[1];
         String strUID;
@@ -18,98 +25,58 @@ public class ReadRFID {
         byte sector = 15, block = 2;
 
 
-        //读卡，得到序列号
-//        if(rc522.Request(rc522.RaspRC522.PICC_REQIDL, back_bits) == rc522.MI_OK)
-//            System.out.println("Detected:"+back_bits[0]);
-//        if(rc522.AntiColl(tagid) != rc522.RaspRC522.MI_OK)
-//        {
-//            System.out.println("anticoll error");
-//            return;
-//        }
+        while (true) {
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+
+            tagid = new byte[5];
+            status = rc522.Select_MirareOne(tagid);
+            System.out.println(status);
+
+            strUID = Convert.bytesToHex(tagid);
+            System.out.println("Card Read UID:" + strUID.substring(0, 2) + "," +
+                    strUID.substring(2, 4) + "," +
+                    strUID.substring(4, 6) + "," +
+                    strUID.substring(6, 8));
+
+            //default key
+            byte[] keyA = new byte[]{(byte) 0x03, (byte) 0x03, (byte) 0x00, (byte) 0x01, (byte) 0x02, (byte) 0x03};
+            byte[] keyB = new byte[]{(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF};
+
+            byte data[] = new byte[16];
+//            status = rc522.Auth_Card(RaspRC522.PICC_AUTHENT1A, sector, block, keyA, tagid);
+//            if (status != RaspRC522.MI_OK) {
+//                System.out.println("Authenticate A error");
+////                continue;
+//            } else {
 //
-//        //Select the scanned tag，选中指定序列号的卡
-//        int size=rc522.Select_Tag(tagid);
-//        System.out.println("Size="+size);
-
-        rc522.Select_MirareOne(tagid);
-        strUID = Convert.bytesToHex(tagid);
-        //System.out.println(strUID);
-        //System.out.println("Card Read UID:" + tagid[0] + "," + tagid[1] + "," + tagid[2] + "," + tagid[3]);
-        System.out.println("Card Read UID:" + strUID.substring(0, 2) + "," +
-                strUID.substring(2, 4) + "," +
-                strUID.substring(4, 6) + "," +
-                strUID.substring(6, 8));
-
-        //default key
-        byte[] keyA = new byte[]{(byte) 0x03, (byte) 0x03, (byte) 0x00, (byte) 0x01, (byte) 0x02, (byte) 0x03};
-        byte[] keyB = new byte[]{(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF};
-
-
-        //Authenticate,Aキー認証カード、あなたはデータブロック2を読むことができます
-        byte data[] = new byte[16];
-//        status = rc522.Auth_Card(RaspRC522.PICC_AUTHENT1A, sector, block, keyA, tagid);
-//        if (status != RaspRC522.MI_OK) {
-//            System.out.println("Authenticate A error");
-//            return;
-//        }
+//                status = rc522.Read(sector, block, data);
+//                System.out.println("Successfully authenticated,Read data=" + Convert.bytesToHex(data));
+//                status = rc522.Read(sector, (byte) 3, data);
+//                System.out.println("Read control block data=" + Convert.bytesToHex(data));
 //
-//        status = rc522.Read(sector, block, data);
-//        //rc522.Stop_Crypto();
-//        System.out.println("Successfully authenticated,Read data=" + Convert.bytesToHex(data));
-//        status = rc522.Read(sector, (byte) 3, data);
-//        System.out.println("Read control block data=" + Convert.bytesToHex(data));
-//
-//
-//        for (i = 0; i < 16; i++) {
-//            data[i] = (byte) 0x00;
-//        }
+//            }
+            status = rc522.Auth_Card(RaspRC522.PICC_AUTHENT1B, sector, block, keyB, tagid);
+            if (status != RaspRC522.MI_OK) {
+                System.out.println("Authenticate B error");
+                continue;
+//                return;
+            } else {
 
-        //Authenticate,Aキー認証カード、あなたはデータブロック2を読むことができます
-        status = rc522.Auth_Card(RaspRC522.PICC_AUTHENT1B, sector, block, keyB, tagid);
-        if (status != RaspRC522.MI_OK) {
-            System.out.println("Authenticate B error");
-            return;
+                status = rc522.Read(sector, block, data);
+                System.out.println("Successfully authenticated,Read data=" + Convert.bytesToHex(data));
+                status = rc522.Read(sector, (byte) 3, data);
+                System.out.println("Read control block data=" + Convert.bytesToHex(data));
+
+            }
+            rc522.Stop_Crypto();
+
+
         }
-
-        status = rc522.Read(sector, block, data);
-        //rc522.Stop_Crypto();
-        System.out.println("Successfully authenticated,Read data=" + Convert.bytesToHex(data));
-        status = rc522.Read(sector, (byte) 3, data);
-        System.out.println("Read control block data=" + Convert.bytesToHex(data));
-
-        //
-//        status = rc522.Write(sector, block, data);
-//        if (status == RaspRC522.MI_OK)
-//            System.out.println("Write data finished");
-//        else {
-//            System.out.println("Write data error,status=" + status);
-//            return;
-//        }
-
-//        byte buff[]=new byte[16];
-//
-//        for (i = 0; i < 16; i++)
-//        {
-//            buff[i]=(byte)0;
-//        }
-//        status=rc522.Read(sector,block,buff);
-//        if(status == rc522.RaspRC522.MI_OK)
-//            System.out.println("Read Data finished");
-//        else
-//        {
-//            System.out.println("Read data error,status="+status);
-//            return;
-//        }
-//
-//        System.out.print("sector"+sector+",block="+block+" :");
-//        String strData= rc522.Convert.bytesToHex(buff);
-//        for (i=0;i<16;i++)
-//        {
-//            System.out.print(strData.substring(i*2,i*2+2));
-//            if(i < 15) System.out.print(",");
-//            else System.out.println("");
-//        }
-
 
     }
 
